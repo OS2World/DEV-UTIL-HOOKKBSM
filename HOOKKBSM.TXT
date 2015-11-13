@@ -1,0 +1,602 @@
+Document File for HOOKKBSM PROGRAM
+
+From : Morton F. Kaplon  CIS : 73457,437
+       1047 Johnston Drive
+       Bethlehem PA 18017
+       (215)758-9686
+
+  To : All
+
+Revised and Updated : Tue  11-16-93
+
+Subject : HOOKKBSM
+
+
+INTRODUCTION and OVERVIEW
+
+  HOOKKBSM is an OS/2 equivalent of a DOS TSR program. Operationally it
+  consists of two cooperating and interacting entities. One is the DLL
+  (dynamic link library) named HOOKDLSM.DLL and the other the executable
+  HOOKKBSM.EXE. When HOOKKBSM is loaded, it in turns loads HOOKDLSM into
+  memory where it remains until it is removed from memory by an explicit
+  call (made by HOOKKBSM when it is closed which for some reason does
+  not always succeed). Since HOOKDLSM is a dynamic link library, it can
+  in principle interact with programs other than the one which loaded
+  it. In this application, the DLL contains two functions.
+
+  InputHook    Called by HOOKKBSM as DllProcAddr1
+  Initialize   Called by HOOKKBSM as DllProcAddr2
+
+  HOOKKBSM and HOOKDLSM interact with each other in several ways:
+
+  1:HOOKKBSM places values in Registers and Calls DllProcAddr2
+  2:HOOKKBSM passes the Address of DllProcAddr1 to the API function
+             which sets the HOOK
+  3:HOOKDLSM returns values in registers to HOOKKBSM after DllProcAddr2
+             is called
+  4:HOOKDLSM posts messages to HOOKKBSM via WM_USER+300h as the Message ID
+  5:HOOKDLSM saves sequences of messages in a BUFFER when signalled to do
+             so by a Call to DllProcAddr2 with appropriate parameters, and
+             stops recording on the same basis.
+
+  When acting as a HOT_KEY activator, HOOKDLSM scans the Message Queue for
+  WM_CHAR messages and tests them to determine whether the key combinations
+  Shift-Alt or Ctrl-Alt have been struck along with the existence of a valid
+  Scan Code in the message parameters. If that criteria is met it posts a
+  message to HOOKKBSM using WM_CHAR + 300h as the Message ID and with
+  values in the parameters indicating what key combinations were struck
+  and the value of the Scan Code.
+
+  When acting as a Macro Recorder, in addition to the above action,
+  it stores all the messages in a buffer that was defined at Startup.
+  When the program was loaded, HOOKDLSM received the handle of HOOKKBSM
+  in the first call of DllProcAddr2 and returned to HOOKKBSM the address
+  of the buffer holding the sequence of messages stored. HOOKKBSN, having
+  the address of this buffer is able to replay those messages and
+  interpret their actions.
+
+
+  WHY USE ASSEMBLER and HOW IS IT RELATED to "C"
+
+  It may appear to be somewhat idiosyncratic to use Assembler in this
+  day and age. Why?
+
+  "C" is sometimes described as a High Level Assembler and thus it
+  should be possible to make Assembler look like "C" with the use of an
+  apppropriate set of Macros, particularly in a 32 bit code environment
+  where you no longer are required to use 16 bit segment - 16 bit
+  offsets but can use just 32 bit offsets. And the compile-link  cycle
+  is much faster with Assembler than the comparable cycle with "C" not
+  to mention the smaller code size, though that is not today very much
+  of a problem.
+
+  First let us make some comparisons with "C" and Assembler for the
+  reader who may not be very conversant with Assembler. The comparisons
+  below are intended only to make the source code in HOOKKBSM.ASM and
+  HOOKDLSM.ASM "readable" to some extent to a "C" programmer.
+
+  The notation used below for Assembler is that of MASM 6.0 and used
+  in the source code here.
+
+  Variable Length    --------- C ---------    --- Assembler ---    Comment
+        8  bits        unsigned char               Byte
+       16  bits        unsigned  int               Word
+       32  bits        unsigned long              DWord
+
+  Case Sensitive           YES                      NO
+
+  Define a Variable  unsigned char charv;      charv  BYTE   ?   Uninitialized
+                     unsigned  int intv;       intv   WORD   ?   Uninitialized
+                     unsigned long longv;      longv DWORD   ?   Uninitialized
+
+                   unsigned char charv=9;      charv  BYTE   9     Initialized
+                   unsigned  int intv=1110;    intv   WORD 1110    Initialized
+                   unsigned long longv=100000; longv DWORD 100000  Initialized
+
+  Define an Array    char string[16]           string BYTE 16 dup(0)
+  1st El't. of Array      string[0]            [string]
+  i-th El't of Array      string[i-1]          [string i-1]
+
+  Address of longv        &longv               offset longv
+
+  Comment             /*     */                ; to End of Line
+
+  While  MASM introduces the concept of a pointer, it is unnecessary in
+  Assembler. If a variable in Assembler is defined as :
+     wordvar   WORD   ?
+
+  It can be assigned a value of 12345 by:
+                                         mov   wordvar,12345
+                                             or by
+                                         mov  word ptr[wordvar],12345
+
+  The value of wordvar is referenced by either  wordvar  or word ptr[wordvar].
+  Its address is : offset wordvar  (in "C"  &wordvar)
+
+  The flexibility of Assembler is demonstrated by the referencing below.
+
+  byte ptr[wordvar]   returns the value of lowest byte of  wordvar
+  byte ptr[wordvar+1] returns the value of higher byte of  wordvar
+
+  The [] operator plays the role of dereferencing a variable but you must
+  usually define the size by using  byte|word|dword ptr[varname].
+
+  Because MASM does not allow direct Memory to Memory transfers the
+  equivalent of  wvar1 = wvar2; in "C" is a little more convoluted
+  in assembler - it is an explicit 2 step process mediated via a register
+  of the appropriate size.
+  For a Word size variable
+  mov   ax,wvar1
+  mov   wvar2,ax
+
+  For a Byte size variable one would use an 8 bit register as al,bl,cl etc.
+  while for a 32 bit variable one would use eax,ebx,ecx, etc.
+
+  Array addressing in Assembler also uses index registers (esi,edi and ebx)
+  which are usually assigned the offset of a variable or array (its address)
+  and the components are referenced as [esi+i].
+
+  For the string variable indicated above one would in Assembler address
+  its elements also as:
+  mov    esi,offset string
+  and reference its elements as [esi+i].    (Could also use [string+i])
+
+  Since MASM does nothing to enforce  bounds limits in arrays, you have
+  the same pitfalls of exceeding limits as you do in "C".
+
+  The file DOSWIN32.MAC contains, in addition to the EXTRN declarations
+  needed to identify the OS/2 function calls, a number of Macros to make
+  writing the code easier.
+
+  The most important of these Macros is named  $Call and it is so written
+  that functions calls are made in a "C" like form.
+
+  Consider the function WinQueryTaskTitle. It is described in the Presentation
+  Manager programming reference as :
+
+  ULONG WinQueryTaskTitle (ULONG ulSession, PSZ pszTitle, ULONG ulTitlelen)
+
+  here the function returns a value of (LONG)0 if successful or a non zero value
+  if unsuccessful.
+
+  The first and last variables are unsigned longs and the middle variable
+  is a pointer to a char string.
+
+  The example code snippet for its use given in the manual is
+
+  CHAR  szTitle[MAXNAMEL+1];  /* MAXNAMEL defined in #include files */
+  ULONG errret;               /* not in manual but included here */
+
+  errret = WinQueryTaskTitle(0,szTitle,sizeof(szTitle);
+
+  The comparable snippet of code for Assembler would be
+
+  szTitle  BYTE  (MAXNAME+1) dup(0)
+  errret  DWORD   ?
+
+  $Call WinQueryTask,0,offset szTitle,lengthof szTitle
+  mov    errret,eax     ;all return values are in the eax register
+
+  The point is that whenever you see $Call followed by a function name
+  the  parameters are called in the same order as they would be in the
+  corresponding "C" function call and any return values are in the
+  eax register.
+
+  The notation used is that any object whose first character is "$" is
+  the name of a Macro defined in DosWin32.MAC. Some macros do very
+  explicit tasks and others are more general things, like $Call. The
+  MASM Macro language is quite powerful indeed.
+
+  With these preliminaries out of the way, we will proceed through
+  DOSWIN32.MAC,HOOKKBSM.ASM and HOOKDLSM.ASM indicating in broad terms
+  what is being done.
+
+  First a Disclaimer of Sorts. The source code in both cases contains
+  all its warts. I have not particularly attempted to clean it up
+  and some of the debugging code is still in it, albeit commented out
+  currently. The update comments in the headers indicate the history
+  and in some cases what was done at date x was undone or changed at
+  some later date.
+
+  There may still be some variables defined that are not in use and
+  perhaps some code that is not called, though I hope not.
+
+  DOSWIN32.MAC
+
+  Lines    1  -    6
+  Header
+
+  Lines    7  -   71
+  Included are definitions (some commented out but used for ready reference)
+  of regularly used structures. It should be noted that the fields of
+  structures defined in ASM  *.inc files do not always have the same names
+  as those in the "C" *.h files.
+
+  Lines   72  -   94
+  Various equates - equivalent to "C" #define's
+
+  Lines   95  -  150
+  EXTRN  declarations for various groups of OS/2 functions used in a
+         variety of assembler programs. MASM  6.does not suffer from
+         textual limitations in MACROS as do earlier versions.
+
+  Lines  151  -  176
+  Several Macros used for Conditonal defines in DATA segment of programs.
+  These are used for numeric <> ASCII conversions and for some standard
+  strings.
+
+  Lines  176  -  241
+  The much used $Call macro used for calling functions in a "C" like manner.
+
+  Lines  242  -  314
+  These 2 macros $Printf and $Printf0 are an attempt to emulate "C"'s printf()
+
+  Lines  316  -  435
+  These macros all use DOS..... function calls. Some are usable within a
+  PM program and some are not. One has to look at the documentation for
+  specifics. The ones doing File Reads and Writes are OK but any doing
+  screen output or KB reading in this category are not OK in a PM
+  environment.
+
+  Lines  436  -  565
+  These Macros are primarily used for displaying messages on the Screen
+  via the WinMessageBox function. Some display the value in the eax
+  register and some just  display messages. There are some, of each
+  kind that allow you to pass the text when the macro is called and
+  others that require passing the name/address of a variable in the
+  DATA section.
+
+  Lines  567  -  811
+  The rest of these are general purpose routines involved with concanting
+  strings, copying strings and doing ASCII <> Numerical conversions for
+  unsigned integers.
+
+
+  HOOKKBSM.ASM
+
+  Lines    1 -  241
+  General comments about the history of the code, how to assemble it and
+  how to start the program.
+
+  Lines  242 -  246
+  Define the programming model for MASM. 32 bit (FLAT) and how parameters
+  use the stack.
+
+  Lines  247 -  290
+  These  contain information that is the equivalent of the #define's
+  and #include's in a "C" program and reference files in Toolkt21.
+  OS2 ASM files *.inc are the equivalent of "C" *.h files.
+
+  Lines  291 -  292
+  Defines the STACK for the program
+
+  Lines  293 -  490
+  Defines the DATA section. Here storage for all the variables is assigned
+  and those that require initialization are so initialized.
+  One should not that some of the Macros defined in DOSWIN32.MAC allow
+  one to define STRINGS on the FLY (as in "C") and these are also
+  stored (ultimately) in this DATA section.
+
+  Lines  491 - 2167   CODE SECTION - Will be Broken Down Below - Where
+                      the comments are deemed sufficiently clear no
+                      further ones will be added here.
+
+  Lines  491 -  571
+    AFter the obligatory "startup:" Label the program proceeds to
+    Use OS/2's  DosScanEnv function to get the address of the Command processor
+    Use DOSWIN32.MAC Macro $GetCmdLine to read in the Command Line passed
+    at startup and parse it assigning variables as per what was passed.
+
+  Lines  572 -  611
+  These follow a standard set of function calls used in establishing a
+  window in the PM environment. There are successive calls to:
+  WinInitialize  WinCreateMsgQueue  WinRegisterClass  WinCreateStdWindow
+  These functions set up the basic Frame and Client Window and exist in
+  the order presented here in most PM programs.
+
+  Lines  612 -  615
+  3 User Defined Functions (procedures) SetShiftInsWinSize, DefineWindowSize     ;must be called in
+  and SetWindow are called here. They obtain information on the Screen size
+  and then set the parameters for the size of the HOOKKBSM window and for
+  window used when Shift-Alt-Ins is called.
+
+  Lines  617 -  647
+  The code here is primarily concerned with establishing the DLL and
+  setting the INPUT Hook
+  DosLoadModule loads the DLL into memory
+  DosQueryProcAddr is called twice, to obtain the addresses of each of
+  the Procedures in the DLL.
+  WinSetHook is called to set Procedure 1 as the Input Hook for the system
+  message queue.
+
+  Lines  649 -  660
+  ReadDatFile is a user defined Procedure that uses DOS function calls to
+  read HOOKKBSM.DAT into memory. This establishes the hot-key assignments.
+  This procedure tests HOOKKBSM.DAT for correct formatting and if an
+  error is found, displays a message indicating location of error in the
+  file (in HEX) and aborts. This procedure also fills in the structures
+  AltX and CtrlX which contain information on buffer location of the
+  programs to be executed.
+  SwitchListAlloc is a user defined Procedure that allocates memory for
+  the Task List structures.
+  SetJump is a user defined Procedure which responds to flags read in frp,
+  the command line and
+  GetTaskList is a user defined procedure using Win calls to get the handle
+  of the System Task List for use.
+
+  Lines  661 -  667
+  Here the initialization procedure in the DLL is called after first placing
+  an identifier in eax and the handle of HOOKKBSM in ebx. After receiving
+  this message the DLL places the address of the memory buffer where the
+  Macros will be restored in the eax register so that HOOKKBSM can save it.
+  The  comments are for on line reference.
+
+  Lines  678 -  697
+  Here the Main Message Loop is created  and some additional comments of
+  a general nature are listed.
+
+  Lines  698 - 1100
+  Here the MainWinProc is established. This is the heart of all PM programs
+  and is where the Message queue for this program is responded to. In
+  "C" programs this is usually a BIG Switch statement. Here it is a
+  series of .IF  MessageID ==  WM_xxxxx
+                 Do something
+                 jump to the default Window Procedure
+            .ENDIF
+  statements.
+    Lines 704 -  719 get the passed message parameters from the STACK
+    Lines 720 -  756
+    The series of .IF   .....   .ENDIF statements  handle the  system
+    messages: WM_CREATE  WM_PAINT  WM_CHAR  WM_SIZE  WM_MINMAXFRAME
+    Lines 757 -  1095
+    These handle the message WM_USER+300h this is the message sent from
+    the DLL indicating the key combination Shift-Alt-ValidScanCode or
+    Shift-Ctrl-ValidScanCode has been struck.
+    Line 1096 -  1000
+    This completes the end of MainWinProc and is the equivalent of the
+    default statement in the "C" Switch structure.
+
+    Detail on Lines 757 -  1095  WM_USER+300h Message from DLL
+
+    The code here handles the nitty-gritty of executing the various
+    tasks assigned to the hot-keys, both those that are program and
+    user assigned.
+
+    765 - 768
+    It starts by copying the Alt-Ctrl flag and the Scan Code from the
+    parms passed in the message to variables Alt_Ctrl and ScanCode.
+
+    769 - 773
+    The next block of code, I guess is best described as a KLUDGE. The
+    way HOOKKBSM determines whether a program assigned to a Hot-Key is
+    loaded or not is by inspecting the Task List Titles. To make this a
+    reasonably easy thing to do, when HOOKKBSM first loads a program it
+    changes the name that will be displayed in the Task List by
+    prefacing the program name as listed in HOOKKBSM.DAT with "Alt-X " or
+    "Ctl-X " where X is the Hot-Key. Then when a hot-key is detected,
+    it first scans the Task List Titles to see if that combination is there
+    and if it is, it switches to that rather than start the program.
+    The problem is that some PM programs display for a Task List Title
+    the text that is in their Title Window  and some, because they have
+    to gather information before displaying their window do not load
+    as readily. Thus these programs over-write what HOOKKBSM placed in
+    the Task List for the Titles and it has to be changed. The program,
+    further down this line, tests for the type of Program and if it is one
+    that may potentially do this, it sets the variable frame_flag to 1
+    and these few lines of code test that flag and if it is 1, Calls
+    the user defined Procedure  CheckTitle, which inspects the Task List
+    titel for that program and if it does not have the "Alt-X" or
+    "Ctl-X" characters as the first ones, changes them appropriately.
+    The evidence of this is by activating such a PM Program  and before using
+    any Hot-Keys look at the Task List. You will see its title does not
+    contain the identifying strings, but after using the Task List once
+    CheckTitle has been called and they do.
+
+    775 - 791
+    HOOKKBSM has a hot-key which is a toggle that Inactivates/Activates
+    Hot-Keys. The reason for this is that some programs use triple
+    combinations Shift-Alt-X , Shift-Ctrl-X (mainly X on Cursor Pads)
+    and to make these accessible this toggle was created to allow the
+    user to quickly INACTIVATE HOOKKBSM to access them and to as quickly
+    REACTIVATE HOOKKBSM for switching and other tasks. This block of
+    code resets the toggle flag (toggle)  and depending on its state
+    either displays a Message in HOOKKBSM's window that it is Inactive
+    or Erases that message. For the case of those users who chose the /i
+    option on loading, it has to check for that option and make the
+    appropriate adjustments. The final call in that block of code is to
+    inform the DLL of the state of the program. Since activity for the
+    key combination for the Toggle must always be transmitted to HOOKKBSM
+    but not other information if it toggle is OFF(0), the DLL must reset
+    its flags to know what to do. This call to the Procedure Initialize
+    in DLL sets the toggle flag there to conform to that in HOOKKBSM.
+
+    792 - 893
+    This block of code consists of a series of .IF .... .ENDIF
+    statements that test in succession for the hot-key combinations
+    corresponding to the hard coded key assignments that do not involve
+    loading a program. These are all on the numeric cursor pad.
+    Depending on what was struck a usr defined Procedure is called. For
+    those cases where text is displayed in the HOOKKBSM window, the
+    appropriate messages are displayed and tests done to see if the
+    window has to be activated/hidden if the /i option was chosen  when
+    loading the program.
+    Note that the options Call various user defined procedures which
+    in turn Call other user defined procedures. The procedure involved
+    with Starting Macro Recording (Shift-Ctrl-LeftArrow) Calls Initialize
+    in DLL to notify it to start recording macros and the procedure
+    that stops macro Recording (Shift-Ctrl-RightArrow) also Calls
+    Initialize in DLL to notify it to stop recording and also receives
+    values in return.
+
+    897 - 943
+    This  block of code deals with the 3 cases of hard coded key assignments
+    that load a program ; Shift-Alt-Ins, Shift-Alt-/, Shift=Ctrl-/. Here,
+    as in the cases to follow, the structure used by DosStartSession is
+    filled in appropriately and a jump is done to a location further down
+    the code line to continue processing.
+
+    944 - 971
+    This block of code handles the case that the Hot-key is one of
+    0,1,....,9   or a,..................z . It gets the offset for
+    a lookup table to access the control structure  ALtX or CtrlX.
+
+    972 - 976
+    This block of code has the Upper Case letter ( or #) of the Hot Key
+    and assigns it to the variable HotKeyID.
+
+    977 - 998
+    This block of code fills in the structure used by DosStartSession
+    with the aid of the information in the structure AltX or CtrlX
+    according to which key was struck.
+
+    The second field in HOOKKBSM.DAT has a value indicating how the
+    program is to be loaded (1,2,3,4,7)   or the value 8 if the
+    Hot-Key is a Message Hot-Key or 9 if it is not assigned.
+
+    999 - 1017
+    This group of code handles the Message Key option 8. It first tests
+    to see whether the command line had a title passed on it and if not
+    issues an error message. If a title was passed it checks to see if
+    the target program is loaded and if not issues another error message.
+    If all is OK it then determines the values of the parameters to
+    transmit and send the message to the target program. The Call to
+    GetTargetHandle displays the error message of  "Target Program Not
+    Loaded" - the determination is by inspecting the Task List for the
+    Title. The call to GetFocusWindow obtains the last parm needed to
+    transmit the message and sends it to the Target.
+
+    1021 - 1044
+    The code handles all those cases in which Second field in HOOKKBSM.DAT
+    is not 9 and is not 8. These cases load the designated program according
+    to the field type. The  structure used by DosStartSession is filled
+    in with data corresponding to that assigned to the Hot-Key.
+
+    1046 - 1095
+    The code here runs through the Switch List to see if the program is
+    already loaded. If a match is found with the Title assigned and the
+    Switch List the program jumps to the Default window procedure,
+    otherwise it Activates the program by first setting the focus is set
+    to this program and then DosStartSession is called. Then the Class
+    Name is determined to see if the KLUDGE has to be used by setting
+    the variable frame_flag to 1. At this point the section of code
+    dealing with the message WM_USER + 300h is exited.
+
+  Lines 1101 - 2124
+    This takes you to the End of the Cpde section. This encompasses
+    all the procedures called in response to WM_xxxxx messages from
+    the system queue as well as the Procedures specific to HOOKKBSM.
+
+    The procedures responding to WM_xxxx messages are:
+        Procedure Name            Responding to  WM_xxx
+        MainPaint                      WM_PAINT
+        InitMainWindow                 WM_CREATE
+        MainKeyboard                   WM_CHAR
+        Handled In Line                WM_SIZE
+        Handled In LIne                WM_MINMAXFRAME
+        Handled In Line                WM_USER+300h
+
+    The rest of the procedures do tasks for HOOKKBSM directly with
+    respect to Hot-Keys and Macros. They are in order of appearance
+    after the above:
+
+    Procedure Name     ------------------------ Task --------------------------
+    ExitWin            Exit PM Program-Mainly Called If Error returned using
+                       WIN/DOS Functions
+    SwitchListAlloc    Allocates memory for a switch list of 30 Titles
+    GetSwitchList      Puts address of Switch List Structure into variable
+                       baseaddr
+    GetNameFromHandle  Get 1st 24 chars of Title from Switch List
+    CloseDown          Closes down System  Called on Shift-Alt-End KeyStrokes
+    UnloadKBHook       Unloads HOOKKBSM    Called on Shift-Alt-Del KeyStrokes
+    SetShiftInsWinSize Sets size of Alt-Shift-Ins(w) window
+    DefineWindowSize   Fills RECT structure for Window Size
+    SetWindow          Sets Window Position on Screen
+    RecordMacroON Proc Start Macro Recording Called by Shift-Ctrl-LefttArrow
+                       Initializes DLL for recording
+    RecordMacroOFF     End Macro Recording   Called by Shift-Ctrl-RightArrow
+                       Calls DLL to stop Recording. Receives number of messages
+                       recorded.
+    PlaybackMacro      Play Back Macro in Memory. Called by Shift-Ctrl-Ins
+                       Calls UseCurWindows to interpret each message.
+    UseCurWindows      Called by PlayBackMacro to interpret Messages in Macros
+    WriteMacroAsciiHex Writes Macro In Memory to Disk File in ASCII  (*.MAC)
+    WriteMacroBin      Writes Macro In Memory to Disk File in binary (*.HEX)
+    TimeDelay          Inserts Time Delay. CAlled By PlaybackMacro Procedure
+    ReadDatFile        Reads HOOKKBSM.DAT into Memory Buffer
+    ReadMacroBin       Reads selected HEX (Macro Binary) -> Buffer for Playback
+    SkipSpaces         Used in Parsing - does as it says
+    SkipCommentsToEOL  Used in Parsing skips from ';' to beginning of next line
+    DataFormatErr      Called by Programs Reading Files In. Displays location
+                       of file error in bytes(Hex)
+    SetJump            Responds to /j flag passed on command line.Sets HOOKKBSN
+                       to be jumpable.
+    GetTaskList        Gets Handle of Task List
+    InvFlagAction      Responds to /i flag on command line, sets HOOKKBSM
+                       Information Window according to /i flag.
+    GetUserFile        Implements Dialog Box to Save/Load Macro Files
+    GetFocusWindow     GetsWindow with Focus and Posts Message to Target
+    GetTargetHandle    Gets Handle of Program whose Name passed on Command Line
+    MatchStrings       Does Comparison of Strings pointed to by esi and edi
+    CheckTitle         Checks Task List Title for WC_FRAME type programs
+
+
+  HOOKDLSM.ASM
+
+  Lines    1 -  41
+  General comments about the history of the code and how to assemble it.
+
+  Lines   42 -  61
+  Equates and Includes, equivalent to "C" #define and #include
+
+  Lines   62 -  64
+  Definition of the STACK
+
+  Lines   65  - 92
+  The DATA segment. Defines variables, structures and a large memory
+  block for storage of Macros that is also accessed by HOOKKBSM.
+
+  Lines   93 -  99
+  Code segment starts. Some preliminary comments. Note that this is not
+  an executable and the "startup:" statement is not required at the
+  beginning of the CODE segment.
+
+  Lines  100 - 192
+  This is the InputHook  Procedure which is addressed from HOOKKBSM as
+  DllProcAddr1 and which is the Procedure that is assigned as the
+  Input HOOK on line 643 in HOOKKBSM by the call to WinSetHook.
+  It begins by getting the required parameters from the stack, the
+  most important being the address (pointer to) the InputHook message
+  structure.
+     Lines  116 - 123 the 4 message parameters  (Window Handle,Message ID
+     and parm1 and parm2) are assigned to local variables in DLL.
+     Lines  127 - 151
+     The Macro Record flag is tested and if ON the successive messages
+     are stored in the macro buffer, a record made of the number of
+     messages  and if the Buffer limit is reached, the user is so notified
+     and the recording stopped. Note that all messages except WM_TIMER
+     messages are save in the Macro Buffer.
+     Lines  152 - 192
+     Completes the InputHook procedure. Here is where the KB hooking
+     comes in. IF the Message ID is WM_CHAR then a test is done for
+     the Shift Key Down, the existence of a Valid Scan Code and either
+     ALt or Ctrl struck. If those conditions are met and if the
+     SCanCode indicates the toggle ON/OFF Key (Shift-Alt-5), then a
+     message is ALWAYS posted to HOOKKBSM.
+     IF the toggle is ON, a message is sent to HOOKKBSM indicating the
+     Scan Code and whether the Alt-Ctrl key was down.
+     If the toggle is OFF, the message is passed on to the system.
+
+  Lines  194 - 222
+  This is the Initialize Procedure which is called form HOOKKBSM as
+  DllProcAddr2. This is the procedure which communicates with HOOKKBSM.
+  The values in the eax register indicates the nature of what is being
+  passed . There are four separate cases, corresponding to eax being
+  0,1,2,3 . Cases 0 and 2 return values to HOOKKBSM in the eax register.
+
+     Case eax = 0 : ebx has the handle of HOOKKBSM  and the address of the
+                    Macro Buffer is returned in eax.
+     Case eax = 1 : Macro Recording On. Initialize counters in the DLL
+     Case eax = 2 : Macro REcording Off. Reset Counters, Return total
+                    number of messages recorded in eax.
+     Case eax = 3 : Toggle the  Activation of Hot-Keys OFF/ON.
+

@@ -1,0 +1,12 @@
+; MFK Started:Wed  09-30-1992     :Revised:Mon  11-30-1992
+LIBRARY hookdlsm
+
+DESCRIPTION "M.F.Kaplon KeyBoard Hook Code for hookkbsm  Kboard/Macro utility"
+
+PROTMODE
+
+CODE  PRELOAD
+
+EXPORTS
+   InputHook       @1
+   Initialize      @2

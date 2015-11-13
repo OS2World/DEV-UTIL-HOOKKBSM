@@ -1,0 +1,162 @@
+;; HOOKKBSM.DAT Key Assignment file for HOOKKBSM.EXE Thu  10-21-1993
+;;
+;; This file  MUST be located in the directory c:\os2\hook
+;;
+;; NB the actuating Key strokes are Shift-Alt-X or Shift-Ctrl-X
+;;
+;; The Shift is not required in the text below
+;;
+;; <<<<<<<<<<<<<<<<<<<<<<< The format is as follows >>>>>>>>>>>>>>>>>>>>>>
+;;
+;; A ";"indicates a comment and any text from ";" to end of line is ignored
+;;
+;; Blank Lines are not allowed - place at least one ";" on any line
+;;
+;; There must be at least 1 space between each field and the next field.
+;;
+;; The first field in a line is either A# or C# indicating an assignment to
+;; the Shift-Alt-# or Shift-Ctrl-# key where #  is  0,1,2,3,4,5,6,7,8,9 or
+;; either Ax or Cx indicating an assignment to Shift-Alt-x or to Shift-Ctrl-x
+;; where x is any letter from a .. z.
+;; No distinction exists between LowerCase or UpperCase.
+;;
+;; The next field has the following options.
+;;
+;; 9 means that the key will not be recognized. This can be accomplishied
+;;   as well by commenting that assignment out with ";
+;; ;Ad        means that Shift-Alt-D is not assigned
+;; Ad 9 a 0   means that Shift-Alt-D is not assigned
+;;            the 9 must be followed by a space any letter a space and "0"
+;;
+;; OR just omitting Ad from the text also means it is not assigned
+;;
+;; 8 means that the key will be recognized as a hot key that sends a
+;;   message to the program name passed on the command line
+;;
+;; Ad 8 b 0   assigns Shift-Alt-D as a message sending Key
+;;            the 8 must be followed by a space any letter a space and "0"
+;;
+;; Otherwise the field has the following meaning
+;;
+;; 0   Allows the Shell to establish the session type - best as a rule
+;; 1   Starts program as Full Screen OS/2
+;; 2   Start Program in Windowed Session for programs using Base Video System
+;; 3   Start Program in Windowed Session for programs using PM services
+;; 4   Start Program in Full Screen DOS session
+;; 7   Start Program in Windowed DOS session
+;;
+;; The next field is the file spec of the program to be executed and the
+;; field after that is either a "0" indicating no  command line parameters
+;; or the command line parameters. If the command line parameters contain
+;; any spaces the command line parameters must be contained within "".
+;;
+;; Ae 0 c:\os2\e.exe c:config.sys ; loads the system editor included in OS/2
+;;                                  to edit c:config.sys and assigns  this
+;;                                  command to Shift-Alt-e
+;;
+;; Generically speaking the format below assigns programfilespec to Shift-Alt-x
+;;
+;; Ax 0 programfilespec "program command line" ;if there are command line parms
+;;
+;; Ax 0 programfilespec  0                     ;if no command line parms
+;;
+;; The  programfilespec must contain the extension .COM / .EXE / .BAT
+;; BAT files can be loaded just like EXE files
+;;
+;; HOOKKBSM uses the DosStartSession Function of the OS/2 API to load programs.
+;; It is documented on page 2-345 of the Control Program Functions Manual.
+;;
+;; DosStartSession does not like to load a CMD file directly so they must be
+;; loaded with a command processor as
+;;
+;; A1 0 c:\os2\cmd.exe abcdef.cmd ; abcdef.CMD loaded by OS/2 command processor
+;;
+;; To assign a program to a key follow the examples/rules above
+;;
+;; If you edit this file while HOOKKBSM is Active, press Shft-Alt-UpArrow(W)
+;; to re-read this file in and redefine the Active Set of Keys
+;;
+;; This file contains some assignments using programs that come with OS/2
+;; as well as assigning several key combinations to both OS/2 and DOS
+;; Windowed and Full Screen Sessions. You may of course change any or all
+;; of these but they are included as a "starter" so to speak.
+;;
+;; The following keys are pre-assigned for your convenience and testing
+;;
+;; A1,A2,A3 to OS/2 Command Processors, Ae to OS/2 Editor e.exe
+;; As to OS/2 pmseek program, At to target.exe
+;; C1,C2,C3 to DOS Command Processors,Cb to Qbasic,Cw to Windows 3.1
+;; Ab,Ce and Cx are assigned to send messages to TARGET.EXE
+;; EVERYTHING IS CHANGEABLE
+;;
+A1 0 c:\os2\cmd.exe 0               ;OS/2 window using OS/2 Command Processor
+A2 0 c:\os2\cmd.exe 0               ;OS/2 window using OS2 Command Processor
+A3 1 c:\os2\cmd.exe 0               ;OS/2 Full Screen using OS/2 Command Processor
+A4 9 x 0                            ;Key not assigned
+A5 9 x 0                            ;Key not assigned
+A6 9 a 0                            ;Key not assigned
+A7 9 x 0                            ;Key not assigned
+A8 9 a 0                            ;Key not assigned
+A9 9 a 0                            ;Key not assigned
+A0 9 x 0                            ;Key not assigned
+Aa 9 a 0                            ;Key not assigned
+Ab 8 x 0                            ;sends message to program named on command line
+Ac 9 x 0                            ;Key not assigned
+Ad 9 a 0                            ;Key not assigned
+Ae 0 c:\os2\e.exe 0                 ;OS/2 e.exe  system editor
+Af 9 x 0                            ;Key not assigned
+Ag 9 x 0                            ;Key not assigned
+Ah 9 x 0                            ;Key not assigned
+Ai 9 x 0                            ;Key not assigned
+Aj 9 x 0                            ;Key not assigned
+Ak 9 x 0                            ;Key not assigned
+Al 9 x 0                            ;Key not assigned
+Am 9 x 0                            ;Key not assigned
+An 9 x 0                            ;Key not assigned
+Ap 9 z 0                            ;Key not assigned
+Aq 9 x 0                            ;Key not assigned
+Ar 9 z 0                            ;Key not assigned
+As 0 c:\os2\apps\pmseek.exe 0       ;OS/2 Search & Scan Applet
+At 0 c:target.exe 0                 ;target.exe program used as target of 8 option programs
+Au 9 z 0                            ;Key not assigned
+Av 9 x 0                            ;Key not assigned
+Aw 9 z 0                            ;Key not assigned
+Ax 9 z 0                            ;Key not assigned
+Ay 9 z 0                            ;Key not assigned
+Az 9 z 0                            ;Key not assigned
+C1 7 c:\os2\mdos\command.com  0     ;DOS window using built in DOS
+C2 7 c:\os2\mdos\command.com  0     ;DOS window using built in DOS
+C3 4 c:\os2\mdos\command.com  0     ;Full Screen using built in DOS
+C4 9 a 0                            ;Key not assigned
+C5 9 a 0                            ;Key not assigned
+C6 9 a 0                            ;Key not assigned
+C7 9 a 0                            ;Key not assigned
+C8 9 a 0                            ;Key not assigned
+C9 9 a 0                            ;Key not assigned
+C0 9 a 0                            ;Key not assigned
+Ca 9 a 0                            ;Key not assigned
+Cb 7 c:\os2\mdos\qbasic.exe 0       ;QBasic from dos in DOS window
+Cc 9 a 0                            ;Key not assigned
+Cd 9 a 0                            ;Key not assigned
+Ce 8 a 0                            ;sends message to program named on command line
+Cf 9 c 0                            ;Key not assigned
+Cg 9 b 0                            ;Key not assigned
+Ch 9 c 0                            ;Key not assigned
+Ci 9 c 0                            ;Key not assigned
+Cj 9 d 0                            ;Key not assigned
+Ck 9 e 0                            ;Key not assigned
+Cl 9 f 0                            ;Key not assigned
+Cm 9 c 0                            ;Key not assigned
+Cn 9 g 0                            ;Key not assigned
+Co 9 h 0                            ;Key not assigned
+Cp 9 c 0                            ;Key not assigned
+Cq 9 c 0                            ;Key not assigned
+Cr 9 i 0                            ;Key not assigned
+Cs 9 j 0                            ;Key not assigned
+Ct 9 k 0                            ;Key not assigned
+Cu 9 l 0                            ;Key not assigned
+Cv 9 m 0                            ;Key not assigned
+Cw 4 c:\os2\mdos\winos2\win.com 0   ;OS/2 DOS Win 3.1 Full Screen
+Cx 8 o 0                            ;Send Message to Target
+Cy 9 p 0                            ;Key not assigned
+Cz 9 q 0                            ;Key not assigned
